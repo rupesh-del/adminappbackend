@@ -1,0 +1,9 @@
+ECHO is on.
+# Node Modules
+node_modules/
+
+# Environment Variables
+.env
+
+# Logs
+*.log
