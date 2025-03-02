@@ -155,6 +155,107 @@ app.delete("/transactions/:id", async (req, res) => {
   }
 });
 
+// DAILY REPORTS COMPONENT
+// DAILY RECEIVABLES 
+// ✅ Create a New Daily Receivables Report (Auto-Save)
+app.post("/daily-receivables", async (req, res) => {
+  try {
+    const { report_date, opening_balance, closing_balance, report_data } = req.body;
+
+    const result = await pool.query(
+      `INSERT INTO daily_receivables (report_date, opening_balance, closing_balance, report_data)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [report_date, opening_balance, closing_balance, report_data]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Error creating report:", error);
+    res.status(500).json({ error: "Server error while creating report" });
+  }
+});
+
+// ✅ Fetch All Reports (Only Dates & IDs)
+app.get("/daily-receivables", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, report_date FROM daily_receivables ORDER BY report_date DESC"
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching reports:", error);
+    res.status(500).json({ error: "Server error while fetching reports" });
+  }
+});
+
+// ✅ Retrieve a Specific Report by Date
+app.get("/daily-receivables/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+
+    const result = await pool.query(
+      "SELECT * FROM daily_receivables WHERE report_date = $1",
+      [date]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "No report found for this date" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error retrieving report:", error);
+    res.status(500).json({ error: "Server error while retrieving report" });
+  }
+});
+
+// ✅ Update an Existing Report by Date
+app.put("/daily-receivables/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+    const { opening_balance, closing_balance, report_data } = req.body;
+
+    const result = await pool.query(
+      `UPDATE daily_receivables 
+       SET opening_balance = $1, closing_balance = $2, report_data = $3 
+       WHERE report_date = $4 RETURNING *`,
+      [opening_balance, closing_balance, report_data, date]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Report not found for update" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error updating report:", error);
+    res.status(500).json({ error: "Server error while updating report" });
+  }
+});
+
+// ✅ Delete a Report by Date
+app.delete("/daily-receivables/:date", async (req, res) => {
+  try {
+    const { date } = req.params;
+
+    const result = await pool.query(
+      "DELETE FROM daily_receivables WHERE report_date = $1 RETURNING *",
+      [date]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "No report found to delete" });
+    }
+
+    res.status(200).json({ message: "Report deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting report:", error);
+    res.status(500).json({ error: "Server error while deleting report" });
+  }
+});
+
+
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
