@@ -39,17 +39,31 @@ app.get("/accounts", async (req, res) => {
 // ✅ Create New Account
 app.post("/accounts", async (req, res) => {
   const { name, balance, balanceType } = req.body;
+
   try {
+    // ✅ Check if account already exists
+    const existingAccount = await pool.query(
+      "SELECT * FROM accounts_app.accounts WHERE name = $1",
+      [name.trim()]
+    );
+
+    if (existingAccount.rows.length > 0) {
+      return res.status(400).json({ error: "Account already exists." });
+    }
+
+    // ✅ Insert New Account
     const result = await pool.query(
       "INSERT INTO accounts_app.accounts (name, balance, balance_type) VALUES ($1, $2, $3) RETURNING *",
-      [name, balance, balanceType]
+      [name.trim(), balance, balanceType]
     );
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error("Error creating account:", error);
     res.status(500).json({ error: "Server error creating account" });
   }
 });
+
 
 // ✅ Delete Account
 app.delete("/accounts/:id", async (req, res) => {
