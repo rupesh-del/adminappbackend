@@ -99,16 +99,31 @@ app.get("/accounts/:id/transactions", async (req, res) => {
 // ✅ Add a New Transaction
 app.post("/accounts/:id/transactions", async (req, res) => {
   const { id } = req.params;
-  const { date, debit, credit, details } = req.body;
+  let { date, debit, credit, details } = req.body;
+
   try {
+    // ✅ Ensure at least one value (debit or credit) is provided
+    if ((!debit || debit === "") && (!credit || credit === "")) {
+      return res.status(400).json({ error: "Either debit or credit must be entered." });
+    }
+
+    // ✅ Convert empty values to 0 (ensure numeric)
+    debit = debit ? parseFloat(debit) : 0;
+    credit = credit ? parseFloat(credit) : 0;
+
+    if (isNaN(debit) || isNaN(credit)) {
+      return res.status(400).json({ error: "Invalid numeric input for debit or credit." });
+    }
+
     const result = await pool.query(
       "INSERT INTO accounts_app.transactions (account_id, date, debit, credit, details) VALUES ($1, $2, $3, $4, $5) RETURNING *",
       [id, date, debit, credit, details]
     );
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error("Error adding transaction:", error);
-    res.status(500).json({ error: "Server error adding transaction" });
+    res.status(500).json({ error: "Server error adding transaction." });
   }
 });
 
