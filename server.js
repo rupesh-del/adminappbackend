@@ -160,52 +160,23 @@ app.delete("/transactions/:id", async (req, res) => {
 // ✅ Create a New Daily Receivables Report (Auto-Save)
 app.post("/daily-receivables", async (req, res) => {
   try {
-    const { report_date, opening_balance, closing_balance, report_data } = req.body;
+      console.log("📥 Creating New Report:", req.body);
+      const { report_date, opening_balance, closing_balance, report_data } = req.body;
 
-    console.log("📝 Received Report Data:", req.body);
-
-    // ✅ Ensure empty fields have default values
-    const validData = {
-      report_date: report_date || new Date().toISOString().split("T")[0],
-      opening_balance: opening_balance || "0",
-      closing_balance: closing_balance || "0",
-      report_data: report_data || { customers: [], digicel_wholesale: [], misc_sales: [], cash_payouts: [] }
-    };
-
-    // ✅ Check if a report already exists for this date
-    const existingReport = await pool.query(
-      "SELECT * FROM daily_receivables WHERE report_date = $1",
-      [validData.report_date]
-    );
-
-    if (existingReport.rows.length > 0) {
-      // ✅ If report exists, UPDATE instead of inserting
-      const updateResult = await pool.query(
-        `UPDATE daily_receivables 
-         SET opening_balance = $1, closing_balance = $2, report_data = $3
-         WHERE report_date = $4 RETURNING *`,
-        [validData.opening_balance, validData.closing_balance, JSON.stringify(validData.report_data), validData.report_date]
+      const result = await pool.query(
+          `INSERT INTO daily_receivables (report_date, opening_balance, closing_balance, report_data, status) 
+           VALUES ($1, $2, $3, $4, 'open') RETURNING *`,
+          [report_date, opening_balance, closing_balance, report_data]
       );
 
-      console.log("✅ Report Updated:", updateResult.rows[0]);
-      return res.status(200).json(updateResult.rows[0]);
-    }
-
-    // ✅ If no report exists, INSERT a new one
-    const result = await pool.query(
-      `INSERT INTO daily_receivables (report_date, opening_balance, closing_balance, report_data)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [validData.report_date, validData.opening_balance, validData.closing_balance, JSON.stringify(validData.report_data)]
-    );
-
-    console.log("✅ New Report Created:", result.rows[0]);
-    res.status(201).json(result.rows[0]);
-
+      console.log("✅ New Report Created:", result.rows[0]);
+      res.json(result.rows[0]);
   } catch (error) {
-    console.error("❌ Error saving report:", error);
-    res.status(500).json({ error: "Server error while saving report", details: error.message });
+      console.error("❌ Error creating report:", error);
+      res.status(500).json({ error: "Failed to create report" });
   }
 });
+
 
 
 // ✅ Fetch All Reports (Only Dates & IDs)
@@ -249,26 +220,50 @@ app.get("/daily-receivables/:date", async (req, res) => {
 // ✅ Update an Existing Report by Date
 app.put("/daily-receivables/:date", async (req, res) => {
   try {
-    const { date } = req.params;
-    const { opening_balance, closing_balance, report_data } = req.body;
+      console.log("📝 Updating Report:", req.body);
+      const { report_date, opening_balance, closing_balance, report_data, status } = req.body;
 
-    const result = await pool.query(
-      `UPDATE daily_receivables 
-       SET opening_balance = $1, closing_balance = $2, report_data = $3 
-       WHERE report_date = $4 RETURNING *`,
-      [opening_balance, closing_balance, report_data, date]
-    );
+      const result = await pool.query(
+          `UPDATE daily_receivables 
+           SET opening_balance = $1, closing_balance = $2, report_data = $3, status = $4 
+           WHERE report_date = $5 RETURNING *`,
+          [opening_balance, closing_balance, report_data, status, report_date]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Report not found for update" });
-    }
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: "Report not found for update" });
+      }
 
-    res.json(result.rows[0]);
+      console.log("✅ Report Updated:", result.rows[0]);
+      res.json(result.rows[0]);
   } catch (error) {
-    console.error("Error updating report:", error);
-    res.status(500).json({ error: "Server error while updating report" });
+      console.error("❌ Error updating report:", error);
+      res.status(500).json({ error: "Failed to update report" });
   }
 });
+app.put("/daily-receivables/finish/:date", async (req, res) => {
+  try {
+      console.log(`🚫 Finishing Report: ${req.params.date}`);
+
+      const result = await pool.query(
+          `UPDATE daily_receivables 
+           SET status = 'finished' 
+           WHERE report_date = $1 RETURNING *`,
+          [req.params.date]
+      );
+
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: "Report not found to finish" });
+      }
+
+      console.log("✅ Report Finished:", result.rows[0]);
+      res.json(result.rows[0]);
+  } catch (error) {
+      console.error("❌ Error finishing report:", error);
+      res.status(500).json({ error: "Failed to finish report" });
+  }
+});
+
 
 // ✅ Delete a Report by Date
 app.delete("/daily-receivables/:date", async (req, res) => {
