@@ -168,30 +168,49 @@ app.post("/daily-receivables", async (req, res) => {
           return res.status(400).json({ error: "Report date is required" });
       }
 
-      // ✅ Ensure numeric fields are set to 0 if empty
+      // ✅ Ensure numeric fields are set to 0 if missing
       opening_balance = opening_balance === "" || opening_balance === undefined ? 0 : parseFloat(opening_balance);
       closing_balance = closing_balance === "" || closing_balance === undefined ? 0 : parseFloat(closing_balance);
-
-      // ✅ Ensure report_data is always a valid JSON object
       report_data = report_data && typeof report_data === "object" ? report_data : {};
 
-      const formattedReportData = JSON.stringify(report_data); // Ensure JSONB format
+      const formattedReportData = JSON.stringify(report_data);
 
+      // ✅ First, check if a report for this date already exists
+      const existingReport = await pool.query(
+          `SELECT * FROM daily_receivables WHERE report_date = $1`,
+          [report_date]
+      );
+
+      if (existingReport.rows.length > 0) {
+          console.log(`🔄 Report for ${report_date} already exists. Updating instead of inserting.`);
+
+          // ✅ If the report exists, update it
+          const result = await pool.query(
+              `UPDATE daily_receivables 
+               SET opening_balance = $1, closing_balance = $2, report_data = $3 
+               WHERE report_date = $4 RETURNING *`,
+              [opening_balance, closing_balance, formattedReportData, report_date]
+          );
+
+          console.log("✅ Report Updated Successfully:", result.rows[0]);
+          return res.json(result.rows[0]);
+      }
+
+      // ✅ If no report exists, insert a new one
       const result = await pool.query(
           `INSERT INTO daily_receivables (report_date, opening_balance, closing_balance, report_data, status) 
            VALUES ($1, $2, $3, $4, 'open') RETURNING *`,
           [report_date, opening_balance, closing_balance, formattedReportData]
       );
 
-      console.log("✅ Report Created Successfully:", result.rows[0]);
+      console.log("✅ New Report Created Successfully:", result.rows[0]);
       res.json(result.rows[0]);
+
   } catch (error) {
-      console.error("❌ Error creating report:", error);
-      res.status(500).json({ error: "Failed to create report" });
+      console.error("❌ Error creating or updating report:", error);
+      res.status(500).json({ error: "Failed to create or update report" });
   }
 });
-
-
 
 
 // ✅ Fetch All Reports (Only Dates & IDs)
