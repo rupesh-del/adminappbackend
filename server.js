@@ -224,10 +224,13 @@ app.get("/daily-receivables", async (req, res) => {
 // ✅ Retrieve a Specific Report by Date
 app.get("/daily-receivables/:date", async (req, res) => {
   try {
-    const { date } = req.params;
+    let { date } = req.params;
+
+    // ✅ Convert input to Date format for PostgreSQL
+    date = new Date(date).toISOString().split("T")[0];
 
     const result = await pool.query(
-      "SELECT * FROM daily_receivables WHERE report_date = $1",
+      "SELECT * FROM daily_receivables WHERE report_date = $1::date",
       [date]
     );
 
@@ -241,6 +244,7 @@ app.get("/daily-receivables/:date", async (req, res) => {
     res.status(500).json({ error: "Server error while retrieving report" });
   }
 });
+
 
 // ✅ Update an Existing Report by Date
 app.put("/daily-receivables/:date", async (req, res) => {
