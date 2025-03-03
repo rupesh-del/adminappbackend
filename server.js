@@ -263,7 +263,7 @@ app.put("/daily-receivables/:date", async (req, res) => {
 
       let { report_date, opening_balance, closing_balance, report_data, status } = req.body;
 
-      // ✅ Ensure numeric fields are defaulted to 0 if missing
+      // ✅ Ensure numeric fields are set to 0 if missing
       opening_balance = opening_balance === "" || opening_balance === undefined ? 0 : parseFloat(opening_balance);
       closing_balance = closing_balance === "" || closing_balance === undefined ? 0 : parseFloat(closing_balance);
 
