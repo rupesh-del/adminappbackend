@@ -162,18 +162,21 @@ app.post("/daily-receivables", async (req, res) => {
   try {
     const { report_date, opening_balance, closing_balance, report_data } = req.body;
 
+    console.log("📝 Received Report Data:", req.body); // ✅ Log received data
+
     const result = await pool.query(
       `INSERT INTO daily_receivables (report_date, opening_balance, closing_balance, report_data)
        VALUES ($1, $2, $3, $4) RETURNING *`,
-      [report_date, opening_balance, closing_balance, report_data]
+      [report_date, opening_balance, closing_balance, JSON.stringify(report_data)] // ✅ Ensure report_data is JSON
     );
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error("Error creating report:", error);
-    res.status(500).json({ error: "Server error while creating report" });
+    console.error("❌ Error creating report:", error);
+    res.status(500).json({ error: "Server error while creating report", details: error.message });
   }
 });
+
 
 // ✅ Fetch All Reports (Only Dates & IDs)
 app.get("/daily-receivables", async (req, res) => {
