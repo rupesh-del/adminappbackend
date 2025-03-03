@@ -160,22 +160,37 @@ app.delete("/transactions/:id", async (req, res) => {
 // ✅ Create a New Daily Receivables Report (Auto-Save)
 app.post("/daily-receivables", async (req, res) => {
   try {
-      console.log("📥 Creating New Report:", req.body);
-      const { report_date, opening_balance, closing_balance, report_data } = req.body;
+      console.log("📥 Incoming Report Data:", req.body);
+
+      let { report_date, opening_balance, closing_balance, report_data } = req.body;
+
+      if (!report_date) {
+          return res.status(400).json({ error: "Report date is required" });
+      }
+
+      // ✅ Ensure numeric fields are set to 0 if empty
+      opening_balance = opening_balance === "" || opening_balance === undefined ? 0 : parseFloat(opening_balance);
+      closing_balance = closing_balance === "" || closing_balance === undefined ? 0 : parseFloat(closing_balance);
+
+      // ✅ Ensure report_data is always a valid JSON object
+      report_data = report_data && typeof report_data === "object" ? report_data : {};
+
+      const formattedReportData = JSON.stringify(report_data); // Ensure JSONB format
 
       const result = await pool.query(
           `INSERT INTO daily_receivables (report_date, opening_balance, closing_balance, report_data, status) 
            VALUES ($1, $2, $3, $4, 'open') RETURNING *`,
-          [report_date, opening_balance, closing_balance, report_data]
+          [report_date, opening_balance, closing_balance, formattedReportData]
       );
 
-      console.log("✅ New Report Created:", result.rows[0]);
+      console.log("✅ Report Created Successfully:", result.rows[0]);
       res.json(result.rows[0]);
   } catch (error) {
       console.error("❌ Error creating report:", error);
       res.status(500).json({ error: "Failed to create report" });
   }
 });
+
 
 
 
@@ -241,28 +256,41 @@ app.put("/daily-receivables/:date", async (req, res) => {
       res.status(500).json({ error: "Failed to update report" });
   }
 });
-app.put("/daily-receivables/finish/:date", async (req, res) => {
+
+app.put("/daily-receivables/:date", async (req, res) => {
   try {
-      console.log(`🚫 Finishing Report: ${req.params.date}`);
+      console.log("📝 Updating Report:", req.body);
+
+      let { report_date, opening_balance, closing_balance, report_data, status } = req.body;
+
+      // ✅ Ensure numeric fields are defaulted to 0 if missing
+      opening_balance = opening_balance === "" || opening_balance === undefined ? 0 : parseFloat(opening_balance);
+      closing_balance = closing_balance === "" || closing_balance === undefined ? 0 : parseFloat(closing_balance);
+
+      // ✅ Ensure report_data is always valid JSON
+      report_data = report_data && typeof report_data === "object" ? report_data : {};
+
+      const formattedReportData = JSON.stringify(report_data); // Ensure JSONB format
 
       const result = await pool.query(
           `UPDATE daily_receivables 
-           SET status = 'finished' 
-           WHERE report_date = $1 RETURNING *`,
-          [req.params.date]
+           SET opening_balance = $1, closing_balance = $2, report_data = $3, status = COALESCE($4, status)
+           WHERE report_date = $5 RETURNING *`,
+          [opening_balance, closing_balance, formattedReportData, status, report_date]
       );
 
       if (result.rows.length === 0) {
-          return res.status(404).json({ message: "Report not found to finish" });
+          return res.status(404).json({ message: "Report not found for update" });
       }
 
-      console.log("✅ Report Finished:", result.rows[0]);
+      console.log("✅ Report Updated Successfully:", result.rows[0]);
       res.json(result.rows[0]);
   } catch (error) {
-      console.error("❌ Error finishing report:", error);
-      res.status(500).json({ error: "Failed to finish report" });
+      console.error("❌ Error updating report:", error);
+      res.status(500).json({ error: "Failed to update report" });
   }
 });
+
 
 
 // ✅ Delete a Report by Date
