@@ -310,6 +310,31 @@ app.put("/daily-receivables/:date", async (req, res) => {
   }
 });
 
+app.put("/daily-receivables/finish/:date", async (req, res) => {
+  try {
+      console.log(`🚫 Finishing Report for Date: ${req.params.date}`);
+
+      // ✅ Ensure the date is properly formatted to match the database (YYYY-MM-DD)
+      const formattedDate = new Date(req.params.date).toISOString().split("T")[0];
+
+      const result = await pool.query(
+          `UPDATE daily_receivables 
+           SET status = 'finished' 
+           WHERE report_date::TEXT LIKE $1 RETURNING *`,  // ✅ Match only the date part
+          [`${formattedDate}%`]
+      );
+
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: "Report not found to finish" });
+      }
+
+      console.log("✅ Report Successfully Finished:", result.rows[0]);
+      res.json(result.rows[0]);
+  } catch (error) {
+      console.error("❌ Error finishing report:", error);
+      res.status(500).json({ error: "Failed to finish report" });
+  }
+});
 
 
 // ✅ Delete a Report by Date
