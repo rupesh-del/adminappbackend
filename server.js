@@ -358,7 +358,159 @@ app.delete("/daily-receivables/:date", async (req, res) => {
   }
 });
 
+// Daily report 
+// ✅ 1️⃣ Create a New Daily Report
+app.post("/daily-report", async (req, res) => {
+  try {
+      const {
+          report_date,
+          cash_particulars,
+          credit_particulars,
+          outbound_cash_sale,
+          cash_correspondence,
+          cash_bf,
+          starting_cash,
+          total_proceedings,
+          cash_payouts
+      } = req.body;
 
+      // Auto-calculate fields
+      const total_cash_payouts = Object.values(outbound_cash_sale).reduce((sum, val) => sum + Number(val), 0);
+      const total_cash_proceedings = Object.values(cash_particulars).reduce((sum, val) => sum + Number(val), 0);
+      const subtotal = total_cash_payouts + total_cash_proceedings;
+      const cash_surplus_deficit = cash_bf + starting_cash - subtotal;
+      const overall_sales =
+          total_proceedings["Cash Sales"] +
+          total_proceedings["Credit Sales"] +
+          total_proceedings["Outbound Sales"] -
+          total_proceedings["Cash Payouts"];
+
+      const result = await pool.query(
+          `INSERT INTO daily_reports (
+              report_date, cash_particulars, credit_particulars, outbound_cash_sale,
+              cash_correspondence, total_cash_payouts, total_cash_proceedings, subtotal,
+              cash_bf, starting_cash, cash_surplus_deficit, total_proceedings, overall_sales
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+          [
+              report_date,
+              cash_particulars,
+              credit_particulars,
+              outbound_cash_sale,
+              cash_correspondence,
+              total_cash_payouts,
+              total_cash_proceedings,
+              subtotal,
+              cash_bf,
+              starting_cash,
+              cash_surplus_deficit,
+              total_proceedings,
+              overall_sales
+          ]
+      );
+
+      res.json({ message: "✅ Report created successfully!", report: result.rows[0] });
+  } catch (error) {
+      console.error("❌ Error creating report:", error);
+      res.status(500).json({ error: "Server error while creating report." });
+  }
+});
+
+// ✅ 2️⃣ Retrieve All Reports
+app.get("/daily-reports", async (req, res) => {
+  try {
+      const result = await pool.query("SELECT id, report_date FROM daily_reports ORDER BY report_date DESC");
+      res.json(result.rows);
+  } catch (error) {
+      console.error("❌ Error fetching reports:", error);
+      res.status(500).json({ error: "Server error while fetching reports." });
+  }
+});
+
+// ✅ 3️⃣ Retrieve a Specific Report by Date
+app.get("/daily-report/:date", async (req, res) => {
+  try {
+      const { date } = req.params;
+      const result = await pool.query("SELECT * FROM daily_reports WHERE report_date = $1::date", [date]);
+
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: "No report found for this date" });
+      }
+
+      res.json(result.rows[0]);
+  } catch (error) {
+      console.error("❌ Error retrieving report:", error);
+      res.status(500).json({ error: "Server error while retrieving report." });
+  }
+});
+
+// ✅ 4️⃣ Update a Daily Report
+app.put("/daily-report/:id", async (req, res) => {
+  try {
+      const { id } = req.params;
+      const {
+          cash_particulars,
+          credit_particulars,
+          outbound_cash_sale,
+          cash_correspondence,
+          cash_bf,
+          starting_cash,
+          total_proceedings,
+          cash_payouts
+      } = req.body;
+
+      // Auto-calculate updates
+      const total_cash_payouts = Object.values(outbound_cash_sale).reduce((sum, val) => sum + Number(val), 0);
+      const total_cash_proceedings = Object.values(cash_particulars).reduce((sum, val) => sum + Number(val), 0);
+      const subtotal = total_cash_payouts + total_cash_proceedings;
+      const cash_surplus_deficit = cash_bf + starting_cash - subtotal;
+      const overall_sales =
+          total_proceedings["Cash Sales"] +
+          total_proceedings["Credit Sales"] +
+          total_proceedings["Outbound Sales"] -
+          total_proceedings["Cash Payouts"];
+
+      const result = await pool.query(
+          `UPDATE daily_reports SET 
+              cash_particulars = $1, credit_particulars = $2, outbound_cash_sale = $3, 
+              cash_correspondence = $4, total_cash_payouts = $5, total_cash_proceedings = $6, 
+              subtotal = $7, cash_bf = $8, starting_cash = $9, cash_surplus_deficit = $10, 
+              total_proceedings = $11, overall_sales = $12
+          WHERE id = $13 RETURNING *`,
+          [
+              cash_particulars,
+              credit_particulars,
+              outbound_cash_sale,
+              cash_correspondence,
+              total_cash_payouts,
+              total_cash_proceedings,
+              subtotal,
+              cash_bf,
+              starting_cash,
+              cash_surplus_deficit,
+              total_proceedings,
+              overall_sales,
+              id
+          ]
+      );
+
+      res.json({ message: "✅ Report updated successfully!", report: result.rows[0] });
+  } catch (error) {
+      console.error("❌ Error updating report:", error);
+      res.status(500).json({ error: "Server error while updating report." });
+  }
+});
+
+// ✅ 5️⃣ Delete a Report
+app.delete("/daily-report/:id", async (req, res) => {
+  try {
+      const { id } = req.params;
+      await pool.query("DELETE FROM daily_reports WHERE id = $1", [id]);
+      res.json({ message: "✅ Report deleted successfully!" });
+  } catch (error) {
+      console.error("❌ Error deleting report:", error);
+      res.status(500).json({ error: "Server error while deleting report." });
+  }
+});
 
 // Start Server
 app.listen(PORT, () => {
