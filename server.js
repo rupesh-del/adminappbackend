@@ -155,6 +155,92 @@ app.delete("/transactions/:id", async (req, res) => {
   }
 });
 
+
+/// Cheque Endpoint///
+
+// ✅ Fetch All Cheques
+app.get("/cheques", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM cheques ORDER BY date_posted DESC");
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching cheques:", error);
+    res.status(500).json({ error: "Server error fetching cheques" });
+  }
+});
+
+// ✅ Fetch a Single Cheque by Cheque Number
+app.get("/cheques/:cheque_number", async (req, res) => {
+  const { cheque_number } = req.params;
+  try {
+    const result = await pool.query("SELECT * FROM cheques WHERE cheque_number = $1", [cheque_number]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Cheque not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching cheque:", error);
+    res.status(500).json({ error: "Server error fetching cheque" });
+  }
+});
+
+// ✅ Add a New Cheque
+app.post("/cheques", async (req, res) => {
+  const { cheque_number, bank_drawn, payer, payee, amount, admin_charge, status } = req.body;
+
+  try {
+    const result = await pool.query(
+      "INSERT INTO cheques (cheque_number, bank_drawn, payer, payee, amount, admin_charge, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+      [cheque_number, bank_drawn, payer, payee, amount, admin_charge, status]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Error adding cheque:", error);
+    res.status(500).json({ error: "Server error adding cheque" });
+  }
+});
+
+// ✅ Edit an Existing Cheque
+app.put("/cheques/:cheque_number", async (req, res) => {
+  const { cheque_number } = req.params;
+  const { bank_drawn, payer, payee, amount, admin_charge, status } = req.body;
+
+  try {
+    const result = await pool.query(
+      "UPDATE cheques SET bank_drawn = $1, payer = $2, payee = $3, amount = $4, admin_charge = $5, status = $6 WHERE cheque_number = $7 RETURNING *",
+      [bank_drawn, payer, payee, amount, admin_charge, status, cheque_number]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Cheque not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error updating cheque:", error);
+    res.status(500).json({ error: "Server error updating cheque" });
+  }
+});
+
+// ✅ Delete a Cheque
+app.delete("/cheques/:cheque_number", async (req, res) => {
+  const { cheque_number } = req.params;
+  try {
+    const result = await pool.query("DELETE FROM cheques WHERE cheque_number = $1 RETURNING *", [cheque_number]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Cheque not found" });
+    }
+
+    res.status(200).json({ message: "Cheque deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting cheque:", error);
+    res.status(500).json({ error: "Server error deleting cheque" });
+  }
+});
+
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
