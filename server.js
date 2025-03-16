@@ -188,16 +188,19 @@ app.get("/cheques/:cheque_number", async (req, res) => {
 app.post("/cheques", async (req, res) => {
   const { cheque_number, bank_drawn, payer, payee, amount, admin_charge, status } = req.body;
 
+  console.log("Received cheque data:", req.body); // Debugging
+
   try {
     const result = await pool.query(
       "INSERT INTO cheques (cheque_number, bank_drawn, payer, payee, amount, admin_charge, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
       [cheque_number, bank_drawn, payer, payee, amount, admin_charge, status]
     );
 
+    console.log("Cheque successfully stored in database:", result.rows[0]); // Debugging
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error("Error adding cheque:", error);
-    res.status(500).json({ error: "Server error adding cheque" });
+    console.error("Error adding cheque to database:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
