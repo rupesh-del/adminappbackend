@@ -162,22 +162,45 @@ app.delete("/transactions/:id", async (req, res) => {
 app.get("/cheques", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM cheques ORDER BY date_posted DESC");
-    res.json(result.rows);
+
+    // Convert fields to numbers before sending response
+    const formattedCheques = result.rows.map(cheque => ({
+      ...cheque,
+      amount: parseFloat(cheque.amount),
+      admin_charge: parseFloat(cheque.admin_charge),
+      net_to_payee: parseFloat(cheque.net_to_payee),
+      date_posted: cheque.date_posted ? new Date(cheque.date_posted).toISOString().split('T')[0] : null
+    }));
+
+    res.json(formattedCheques);
   } catch (error) {
     console.error("Error fetching cheques:", error);
     res.status(500).json({ error: "Server error fetching cheques" });
   }
 });
 
+
 // ✅ Fetch a Single Cheque by Cheque Number
 app.get("/cheques/:cheque_number", async (req, res) => {
   const { cheque_number } = req.params;
   try {
     const result = await pool.query("SELECT * FROM cheques WHERE cheque_number = $1", [cheque_number]);
+    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Cheque not found" });
     }
-    res.json(result.rows[0]);
+
+    // Convert fields to numbers before sending response
+    const cheque = result.rows[0];
+    const formattedCheque = {
+      ...cheque,
+      amount: parseFloat(cheque.amount),
+      admin_charge: parseFloat(cheque.admin_charge),
+      net_to_payee: parseFloat(cheque.net_to_payee),
+      date_posted: cheque.date_posted ? new Date(cheque.date_posted).toISOString().split('T')[0] : null
+    };
+
+    res.json(formattedCheque);
   } catch (error) {
     console.error("Error fetching cheque:", error);
     res.status(500).json({ error: "Server error fetching cheque" });
