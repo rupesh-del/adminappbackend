@@ -179,7 +179,6 @@ app.get("/cheques", async (req, res) => {
   }
 });
 
-
 // ✅ Fetch a Single Cheque by Cheque Number
 app.get("/cheques/:cheque_number", async (req, res) => {
   const { cheque_number } = req.params;
@@ -266,6 +265,50 @@ app.delete("/cheques/:cheque_number", async (req, res) => {
   }
 });
 
+// ✅ Save or Update Cheque Details
+app.post("/cheques/:cheque_number/details", async (req, res) => {
+  const { cheque_number } = req.params;
+  const { address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth } = req.body;
+
+  try {
+    // Check if details exist
+    const existingDetails = await pool.query("SELECT * FROM cheque_details WHERE cheque_number = $1", [cheque_number]);
+
+    if (existingDetails.rows.length > 0) {
+      // Update existing details
+      const result = await pool.query(
+        "UPDATE cheque_details SET address = $1, phone_number = $2, id_type = $3, id_number = $4, date_of_issue = $5, date_of_expiry = $6, date_of_birth = $7 WHERE cheque_number = $8 RETURNING *",
+        [address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth, cheque_number]
+      );
+      res.json(result.rows[0]);
+    } else {
+      // Insert new details
+      const result = await pool.query(
+        "INSERT INTO cheque_details (cheque_number, address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+        [cheque_number, address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth]
+      );
+      res.json(result.rows[0]);
+    }
+  } catch (error) {
+    console.error("Error saving cheque details:", error);
+    res.status(500).json({ error: "Server error saving cheque details" });
+  }
+});
+
+// ✅ Fetch Cheque Details
+app.get("/cheques/:cheque_number/details", async (req, res) => {
+  const { cheque_number } = req.params;
+  try {
+    const result = await pool.query("SELECT * FROM cheque_details WHERE cheque_number = $1", [cheque_number]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Cheque details not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching cheque details:", error);
+    res.status(500).json({ error: "Server error fetching cheque details" });
+  }
+});
 
 // Start Server
 app.listen(PORT, () => {
