@@ -335,63 +335,100 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
 });
 
 // ✅ Update Cheque Main Details (Allow Partial Updates)
-app.put("/cheques/:cheque_number", async (req, res) => {
+app.post("/cheques/:cheque_number/details", async (req, res) => {
   const { cheque_number } = req.params;
-  const { bank_drawn, payer, payee, amount, admin_charge, status } = req.body;
+  const {
+    address,
+    phone_number,
+    id_type,
+    id_number,
+    date_of_issue,
+    date_of_expiry,
+    date_of_birth,
+  } = req.body;
+
+  console.log("🔹 Incoming Data:", req.body); // ✅ Log full request body
 
   try {
-    let updateFields = [];
-    let values = [];
-    let index = 1;
+    // Fetch existing details
+    const existingDetails = await pool.query(
+      "SELECT * FROM cheque_details WHERE cheque_number = $1",
+      [cheque_number]
+    );
 
-    if (bank_drawn !== undefined && bank_drawn !== "") {
-      updateFields.push(`bank_drawn = $${index++}`);
-      values.push(bank_drawn);
-    }
-    if (payer !== undefined && payer !== "") {
-      updateFields.push(`payer = $${index++}`);
-      values.push(payer);
-    }
-    if (payee !== undefined && payee !== "") {
-      updateFields.push(`payee = $${index++}`);
-      values.push(payee);
-    }
-    if (amount !== undefined && amount !== "") {
-      updateFields.push(`amount = $${index++}`);
-      values.push(amount);
-    }
-    if (admin_charge !== undefined && admin_charge !== "") {
-      updateFields.push(`admin_charge = $${index++}`);
-      values.push(admin_charge);
-    }
-    if (status !== undefined && status !== "") {
-      updateFields.push(`status = $${index++}`);
-      values.push(status);
-    }
+    if (existingDetails.rows.length > 0) {
+      // ✅ Dynamically update only the provided fields
+      let updateFields = [];
+      let values = [];
+      let index = 1;
 
-    if (updateFields.length === 0) {
-      return res.status(400).json({ error: "No valid fields to update" });
+      if (address !== undefined) {
+        updateFields.push(`address = $${index++}`);
+        values.push(address);
+      }
+      if (phone_number !== undefined) {
+        updateFields.push(`phone_number = $${index++}`);
+        values.push(phone_number);
+      }
+      if (id_type !== undefined) {
+        updateFields.push(`id_type = $${index++}`);
+        values.push(id_type);
+      }
+      if (id_number !== undefined) {
+        updateFields.push(`id_number = $${index++}`);
+        values.push(id_number);
+      }
+      if (date_of_issue !== undefined) {
+        updateFields.push(`date_of_issue = $${index++}`);
+        values.push(date_of_issue);
+      }
+      if (date_of_expiry !== undefined) {
+        updateFields.push(`date_of_expiry = $${index++}`);
+        values.push(date_of_expiry);
+      }
+      if (date_of_birth !== undefined) {
+        updateFields.push(`date_of_birth = $${index++}`);
+        values.push(date_of_birth);
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+
+      values.push(cheque_number); // Add cheque_number as the last value
+
+      const updateQuery = `UPDATE cheque_details SET ${updateFields.join(", ")} 
+                           WHERE cheque_number = $${index} RETURNING *`;
+
+      console.log("🔹 Executing Query:", updateQuery, "with values:", values); // ✅ Log SQL query
+
+      const result = await pool.query(updateQuery, values);
+      return res.json(result.rows[0]); // ✅ Return updated details
+    } else {
+      // ✅ Insert new details (supports partial data)
+      const result = await pool.query(
+        `INSERT INTO cheque_details (cheque_number, address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [
+          cheque_number,
+          address || null,
+          phone_number || null,
+          id_type || null,
+          id_number || null,
+          date_of_issue || null,
+          date_of_expiry || null,
+          date_of_birth || null,
+        ]
+      );
+      console.log("✅ Inserted New Cheque Details:", result.rows[0]); // ✅ Log inserted data
+      return res.json(result.rows[0]);
     }
-
-    values.push(cheque_number); // Add cheque number as the last value
-
-    const updateQuery = `UPDATE cheques SET ${updateFields.join(", ")} 
-                         WHERE cheque_number = $${index} RETURNING *`;
-
-    console.log("Executing Query:", updateQuery, "with values:", values); // ✅ Log query execution
-
-    const result = await pool.query(updateQuery, values);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Cheque not found" });
-    }
-
-    res.json(result.rows[0]);
   } catch (error) {
-    console.error("Error updating cheque:", error);
-    res.status(500).json({ error: "Server error updating cheque" });
+    console.error("❌ Error saving cheque details:", error);
+    return res.status(500).json({ error: "Server error saving cheque details" });
   }
 });
+
 
 
 // ✅ Fetch Cheque Details
