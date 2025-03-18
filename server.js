@@ -340,32 +340,31 @@ app.put("/cheques/:cheque_number", async (req, res) => {
   const { bank_drawn, payer, payee, amount, admin_charge, status } = req.body;
 
   try {
-    // Generate dynamic update query to allow partial updates
     let updateFields = [];
     let values = [];
     let index = 1;
 
-    if (bank_drawn !== undefined) {
+    if (bank_drawn !== undefined && bank_drawn !== "") {
       updateFields.push(`bank_drawn = $${index++}`);
       values.push(bank_drawn);
     }
-    if (payer !== undefined) {
+    if (payer !== undefined && payer !== "") {
       updateFields.push(`payer = $${index++}`);
       values.push(payer);
     }
-    if (payee !== undefined) {
+    if (payee !== undefined && payee !== "") {
       updateFields.push(`payee = $${index++}`);
       values.push(payee);
     }
-    if (amount !== undefined) {
+    if (amount !== undefined && amount !== "") {
       updateFields.push(`amount = $${index++}`);
       values.push(amount);
     }
-    if (admin_charge !== undefined) {
+    if (admin_charge !== undefined && admin_charge !== "") {
       updateFields.push(`admin_charge = $${index++}`);
       values.push(admin_charge);
     }
-    if (status !== undefined) {
+    if (status !== undefined && status !== "") {
       updateFields.push(`status = $${index++}`);
       values.push(status);
     }
@@ -376,9 +375,10 @@ app.put("/cheques/:cheque_number", async (req, res) => {
 
     values.push(cheque_number); // Add cheque number as the last value
 
-    const updateQuery = `UPDATE cheques SET ${updateFields.join(
-      ", "
-    )} WHERE cheque_number = $${index} RETURNING *`;
+    const updateQuery = `UPDATE cheques SET ${updateFields.join(", ")} 
+                         WHERE cheque_number = $${index} RETURNING *`;
+
+    console.log("Executing Query:", updateQuery, "with values:", values); // ✅ Log query execution
 
     const result = await pool.query(updateQuery, values);
 
