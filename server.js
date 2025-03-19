@@ -386,6 +386,26 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
     return res.status(500).json({ error: "Server error saving cheque details" });
   }
 });
+app.get("/cheques/:cheque_number", async (req, res) => {
+  const { cheque_number } = req.params;
+
+  try {
+    // ✅ Fetch cheque details from the `cheques` table
+    const cheque = await pool.query(
+      "SELECT * FROM cheques WHERE cheque_number = $1",
+      [cheque_number]
+    );
+
+    if (cheque.rows.length === 0) {
+      return res.status(404).json({ error: "Cheque not found" });
+    }
+
+    res.json(cheque.rows[0]);
+  } catch (error) {
+    console.error("❌ Error retrieving main cheque details:", error);
+    res.status(500).json({ error: "Server error retrieving cheque details" });
+  }
+});
 
 
 // ✅ Fetch Cheque Details
