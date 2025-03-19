@@ -243,7 +243,8 @@ app.delete("/cheques/:cheque_number", async (req, res) => {
   }
 });
 
-// ✅ Save or Update Cheque Details (Allow Partial Updates)
+// ✅ Save or Update Cheque Details (Single or Multiple Fields Dynamically)
+
 // ✅ Save or Update Cheque Details (Single or Multiple Fields Dynamically)
 app.post("/cheques/:cheque_number/details", async (req, res) => {
   const { cheque_number } = req.params;
