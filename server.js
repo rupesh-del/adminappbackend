@@ -259,7 +259,7 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
   console.log("🔹 Incoming Data:", req.body); // ✅ Debug Log
 
   try {
-    // ✅ Ensure all required fields are present and properly formatted
+    // ✅ Ensure all fields are present
     if (
       !address?.trim() ||
       !phone_number?.trim() ||
@@ -272,25 +272,44 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
       return res.status(400).json({ error: "All fields are required!" });
     }
 
-    // ✅ Convert date fields to proper format (YYYY-MM-DD)
-    const formattedDateOfIssue = new Date(date_of_issue).toISOString().split("T")[0];
-    const formattedDateOfExpiry = new Date(date_of_expiry).toISOString().split("T")[0];
-    const formattedDateOfBirth = new Date(date_of_birth).toISOString().split("T")[0];
+    // ✅ Format Dates to YYYY-MM-DD
+    date_of_issue = new Date(date_of_issue).toISOString().split("T")[0];
+    date_of_expiry = new Date(date_of_expiry).toISOString().split("T")[0];
+    date_of_birth = new Date(date_of_birth).toISOString().split("T")[0];
 
-    // ✅ Ensure phone number is properly formatted (remove non-numeric characters)
-    phone_number = phone_number.replace(/\D/g, "").slice(0, 20); // Allow up to 20 digits
+    // ✅ Format Phone Number (Remove non-numeric characters)
+    phone_number = phone_number.replace(/\D/g, "").slice(0, 20);
 
-    // ✅ Check if the record already exists
+    // ✅ Check if the record exists
     const existingDetails = await pool.query(
       "SELECT * FROM cheque_details WHERE cheque_number = $1",
       [cheque_number]
     );
 
     if (existingDetails.rows.length > 0) {
-      return res.status(400).json({ error: "Cheque details already exist!" });
+      // ✅ If record exists, UPDATE instead of rejecting
+      const updateQuery = `
+        UPDATE cheque_details 
+        SET address = $1, phone_number = $2, id_type = $3, id_number = $4, 
+            date_of_issue = $5, date_of_expiry = $6, date_of_birth = $7 
+        WHERE cheque_number = $8 RETURNING *`;
+      const updateValues = [
+        address.trim(),
+        phone_number,
+        id_type.trim(),
+        id_number.trim(),
+        date_of_issue,
+        date_of_expiry,
+        date_of_birth,
+        cheque_number,
+      ];
+
+      const updateResult = await pool.query(updateQuery, updateValues);
+      console.log(`✅ Updated cheque details for ${cheque_number}`);
+      return res.json(updateResult.rows[0]);
     }
 
-    // ✅ Insert new cheque details
+    // ✅ If no record exists, INSERT a new one
     const insertQuery = `
       INSERT INTO cheque_details (cheque_number, address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth) 
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
@@ -300,14 +319,14 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
       phone_number,
       id_type.trim(),
       id_number.trim(),
-      formattedDateOfIssue,
-      formattedDateOfExpiry,
-      formattedDateOfBirth,
+      date_of_issue,
+      date_of_expiry,
+      date_of_birth,
     ];
 
-    const result = await pool.query(insertQuery, insertValues);
-    console.log(`✅ Cheque details added successfully for ${cheque_number}`);
-    return res.json(result.rows[0]);
+    const insertResult = await pool.query(insertQuery, insertValues);
+    console.log(`✅ Inserted new cheque details for ${cheque_number}`);
+    return res.json(insertResult.rows[0]);
   } catch (error) {
     console.error("❌ Error saving cheque details:", error);
     return res.status(500).json({ error: "Server error saving cheque details" });
