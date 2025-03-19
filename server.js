@@ -243,42 +243,6 @@ app.post("/cheques", async (req, res) => {
   }
 });
 
-app.post("/cheques/:cheque_number/details", async (req, res) => {
-  const { cheque_number } = req.params;
-  let { address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth } = req.body;
-
-  console.log("🔹 Incoming Data to Save:", req.body);
-
-  try {
-    // ✅ Ensure all required fields are present
-    if (!address || !phone_number || !id_type || !id_number || !date_of_issue || !date_of_expiry || !date_of_birth) {
-      return res.status(400).json({ error: "All fields are required!" });
-    }
-
-    // ✅ Insert cheque details
-    const insertQuery = `
-      INSERT INTO cheque_details (cheque_number, address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
-    const insertValues = [
-      cheque_number,
-      address,
-      phone_number,
-      id_type,
-      id_number,
-      date_of_issue,
-      date_of_expiry,
-      date_of_birth,
-    ];
-
-    const result = await pool.query(insertQuery, insertValues);
-    console.log("✅ Cheque Saved:", result.rows[0]); // ✅ Log inserted cheque
-    return res.json(result.rows[0]);
-  } catch (error) {
-    console.error("❌ Error saving cheque:", error);
-    return res.status(500).json({ error: "Server error saving cheque details" });
-  }
-});
-
 
 // ✅ Delete a Cheque
 app.delete("/cheques/:cheque_number", async (req, res) => {
@@ -386,6 +350,63 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
     return res.status(500).json({ error: "Server error saving cheque details" });
   }
 });
+
+app.patch("/cheques/:cheque_number/details", async (req, res) => {
+  const { cheque_number } = req.params;
+  const updates = req.body;
+
+  console.log(`🔹 Incoming Update Request for Cheque ${cheque_number}:`, updates);
+
+  try {
+    // ✅ Ensure the cheque exists before updating details
+    const chequeExists = await pool.query(
+      "SELECT * FROM cheque_details WHERE cheque_number = $1",
+      [cheque_number]
+    );
+
+    if (chequeExists.rows.length === 0) {
+      return res.status(404).json({ error: "Cheque details not found!" });
+    }
+
+    // ✅ Dynamically construct update query based on provided fields
+    const fieldsToUpdate = [];
+    const values = [];
+    let index = 1;
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined && value !== null) {
+        fieldsToUpdate.push(`${key} = $${index}`);
+        values.push(value);
+        index++;
+      }
+    }
+
+    // ✅ If no valid fields are provided, return an error
+    if (fieldsToUpdate.length === 0) {
+      return res.status(400).json({ error: "No valid fields provided for update!" });
+    }
+
+    // ✅ Add cheque_number as the last parameter
+    values.push(cheque_number);
+
+    // ✅ Construct & execute the update query
+    const updateQuery = `
+      UPDATE cheque_details 
+      SET ${fieldsToUpdate.join(", ")} 
+      WHERE cheque_number = $${index} 
+      RETURNING *;
+    `;
+
+    const result = await pool.query(updateQuery, values);
+    console.log(`✅ Cheque Details Updated for ${cheque_number}:`, result.rows[0]);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("❌ Error updating cheque details:", error);
+    res.status(500).json({ error: "Server error updating cheque details" });
+  }
+});
+
 app.get("/cheques/:cheque_number", async (req, res) => {
   const { cheque_number } = req.params;
 
