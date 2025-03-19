@@ -207,24 +207,42 @@ app.get("/cheques/:cheque_number", async (req, res) => {
 });
 
 // ✅ Add a New Cheque
-app.post("/cheques", async (req, res) => {
-  const { cheque_number, bank_drawn, payer, payee, amount, admin_charge, status } = req.body;
+app.post("/cheques/:cheque_number/details", async (req, res) => {
+  const { cheque_number } = req.params;
+  let { address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth } = req.body;
 
-  console.log("Received cheque data:", req.body); // Debugging
+  console.log("🔹 Incoming Data to Save:", req.body);
 
   try {
-    const result = await pool.query(
-      "INSERT INTO cheques (cheque_number, bank_drawn, payer, payee, amount, admin_charge, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
-      [cheque_number, bank_drawn, payer, payee, amount, admin_charge, status]
-    );
+    // ✅ Ensure all required fields are present
+    if (!address || !phone_number || !id_type || !id_number || !date_of_issue || !date_of_expiry || !date_of_birth) {
+      return res.status(400).json({ error: "All fields are required!" });
+    }
 
-    console.log("Cheque successfully stored in database:", result.rows[0]); // Debugging
-    res.status(201).json(result.rows[0]);
+    // ✅ Insert cheque details
+    const insertQuery = `
+      INSERT INTO cheque_details (cheque_number, address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+    const insertValues = [
+      cheque_number,
+      address,
+      phone_number,
+      id_type,
+      id_number,
+      date_of_issue,
+      date_of_expiry,
+      date_of_birth,
+    ];
+
+    const result = await pool.query(insertQuery, insertValues);
+    console.log("✅ Cheque Saved:", result.rows[0]); // ✅ Log inserted cheque
+    return res.json(result.rows[0]);
   } catch (error) {
-    console.error("Error adding cheque to database:", error);
-    res.status(500).json({ error: error.message });
+    console.error("❌ Error saving cheque:", error);
+    return res.status(500).json({ error: "Server error saving cheque details" });
   }
 });
+
 
 // ✅ Delete a Cheque
 app.delete("/cheques/:cheque_number", async (req, res) => {
