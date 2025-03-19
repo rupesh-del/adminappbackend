@@ -246,7 +246,7 @@ app.delete("/cheques/:cheque_number", async (req, res) => {
 // ✅ Save or Update Cheque Details (Single or Multiple Fields Dynamically)
 app.post("/cheques/:cheque_number/details", async (req, res) => {
   const { cheque_number } = req.params;
-  const {
+  let {
     address,
     phone_number,
     id_type,
@@ -259,18 +259,26 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
   console.log("🔹 Incoming Data:", req.body); // ✅ Debug Log
 
   try {
-    // ✅ Ensure all required fields are present
+    // ✅ Ensure all required fields are present and properly formatted
     if (
-      !address ||
-      !phone_number ||
-      !id_type ||
-      !id_number ||
+      !address?.trim() ||
+      !phone_number?.trim() ||
+      !id_type?.trim() ||
+      !id_number?.trim() ||
       !date_of_issue ||
       !date_of_expiry ||
       !date_of_birth
     ) {
       return res.status(400).json({ error: "All fields are required!" });
     }
+
+    // ✅ Convert date fields to proper format (YYYY-MM-DD)
+    const formattedDateOfIssue = new Date(date_of_issue).toISOString().split("T")[0];
+    const formattedDateOfExpiry = new Date(date_of_expiry).toISOString().split("T")[0];
+    const formattedDateOfBirth = new Date(date_of_birth).toISOString().split("T")[0];
+
+    // ✅ Ensure phone number is properly formatted (remove non-numeric characters)
+    phone_number = phone_number.replace(/\D/g, "").slice(0, 20); // Allow up to 20 digits
 
     // ✅ Check if the record already exists
     const existingDetails = await pool.query(
@@ -288,13 +296,13 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
     const insertValues = [
       cheque_number,
-      address,
+      address.trim(),
       phone_number,
-      id_type,
-      id_number,
-      date_of_issue,
-      date_of_expiry,
-      date_of_birth,
+      id_type.trim(),
+      id_number.trim(),
+      formattedDateOfIssue,
+      formattedDateOfExpiry,
+      formattedDateOfBirth,
     ];
 
     const result = await pool.query(insertQuery, insertValues);
@@ -305,6 +313,7 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
     return res.status(500).json({ error: "Server error saving cheque details" });
   }
 });
+
 
 // ✅ Fetch Cheque Details
 app.get("/cheques/:cheque_number/details", async (req, res) => {
