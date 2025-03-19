@@ -389,24 +389,26 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
 
 
 // ✅ Fetch Cheque Details
-app.get("/cheques/:cheque_number", async (req, res) => {
+app.get("/cheques/:cheque_number/details", async (req, res) => {
   const { cheque_number } = req.params;
 
   try {
-    const cheque = await pool.query("SELECT * FROM cheques WHERE cheque_number = $1", [cheque_number]);
+    // ✅ Fetch cheque details from the correct table: `cheque_details`
+    const chequeDetails = await pool.query(
+      "SELECT * FROM cheque_details WHERE cheque_number = $1",
+      [cheque_number]
+    );
 
-    if (cheque.rows.length === 0) {
-      return res.status(404).json({ error: "Cheque not found" }); // ✅ Return 404 if cheque doesn't exist
+    if (chequeDetails.rows.length === 0) {
+      return res.status(404).json({ error: "Cheque details not found" });
     }
 
-    res.json(cheque.rows[0]);
+    res.json(chequeDetails.rows[0]);
   } catch (error) {
     console.error("❌ Error retrieving cheque details:", error);
     res.status(500).json({ error: "Server error retrieving cheque details" });
   }
 });
-
-
 
 
 // Start Server
