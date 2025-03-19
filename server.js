@@ -407,6 +407,43 @@ app.patch("/cheques/:cheque_number/details", async (req, res) => {
   }
 });
 
+app.patch("/cheques/:cheque_number/status", async (req, res) => {
+  const { cheque_number } = req.params;
+  const { status } = req.body;
+
+  console.log(`🔹 Updating status for Cheque ${cheque_number} to: ${status}`);
+
+  try {
+    // ✅ Ensure cheque exists
+    const chequeExists = await pool.query(
+      "SELECT * FROM cheques WHERE cheque_number = $1",
+      [cheque_number]
+    );
+
+    if (chequeExists.rows.length === 0) {
+      return res.status(404).json({ error: "Cheque not found!" });
+    }
+
+    // ✅ Update only the status field
+    const updateQuery = `
+      UPDATE cheques 
+      SET status = $1 
+      WHERE cheque_number = $2 
+      RETURNING *;
+    `;
+    const values = [status, cheque_number];
+
+    const result = await pool.query(updateQuery, values);
+    console.log(`✅ Status Updated for Cheque ${cheque_number}:`, result.rows[0]);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("❌ Error updating cheque status:", error);
+    res.status(500).json({ error: "Server error updating cheque status" });
+  }
+});
+
+
 app.get("/cheques/:cheque_number", async (req, res) => {
   const { cheque_number } = req.params;
 
