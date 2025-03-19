@@ -207,6 +207,42 @@ app.get("/cheques/:cheque_number", async (req, res) => {
 });
 
 // ✅ Add a New Cheque
+// ✅ Add a New Cheque to the Main `cheques` Table
+app.post("/cheques", async (req, res) => {
+  const { cheque_number, bank_drawn, payer, payee, amount, admin_charge, date_posted, status } = req.body;
+
+  console.log("🔹 Incoming Cheque Data:", req.body);
+
+  try {
+    // ✅ Ensure all required fields are present
+    if (!cheque_number || !bank_drawn || !payer || !payee || !amount || !admin_charge || !date_posted || !status) {
+      return res.status(400).json({ error: "All cheque fields are required!" });
+    }
+
+    // ✅ Insert new cheque into the `cheques` table
+    const insertQuery = `
+      INSERT INTO cheques (cheque_number, bank_drawn, payer, payee, amount, admin_charge, date_posted, status) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+    const insertValues = [
+      cheque_number,
+      bank_drawn,
+      payer,
+      payee,
+      amount,
+      admin_charge,
+      date_posted,
+      status
+    ];
+
+    const result = await pool.query(insertQuery, insertValues);
+    console.log("✅ Cheque Added:", result.rows[0]); // ✅ Log inserted cheque
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error("❌ Error adding cheque:", error);
+    return res.status(500).json({ error: "Server error adding cheque" });
+  }
+});
+
 app.post("/cheques/:cheque_number/details", async (req, res) => {
   const { cheque_number } = req.params;
   let { address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth } = req.body;
