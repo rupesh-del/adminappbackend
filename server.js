@@ -246,7 +246,7 @@ app.delete("/cheques/:cheque_number", async (req, res) => {
 // ✅ Save or Update Cheque Details (Single or Multiple Fields Dynamically)
 app.post("/cheques/:cheque_number/details", async (req, res) => {
   const { cheque_number } = req.params;
-  const {
+  let {
     address,
     phone_number,
     id_type,
@@ -266,7 +266,7 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
     );
 
     if (existingDetails.rows.length === 0) {
-      // ✅ No record exists, insert a new row with NULL where values are missing
+      // ✅ Insert a new row if no record exists
       const insertQuery = `
         INSERT INTO cheque_details (cheque_number, address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
@@ -286,38 +286,47 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
       return res.json(result.rows[0]);
     }
 
-    // ✅ Build dynamic update query (ensure empty fields are updated to NULL)
+    // ✅ Fix: Prevent overwriting fields with "null" or empty values
+    address = address === "" ? null : address;
+    phone_number = phone_number === "" ? null : phone_number;
+    id_type = id_type === "" ? null : id_type;
+    id_number = id_number === "" ? null : id_number;
+    date_of_issue = date_of_issue === "" ? null : date_of_issue;
+    date_of_expiry = date_of_expiry === "" ? null : date_of_expiry;
+    date_of_birth = date_of_birth === "" ? null : date_of_birth;
+
+    // ✅ Build dynamic update query for only provided fields
     let updateFields = [];
     let values = [];
     let index = 1;
 
     if (address !== undefined) {
       updateFields.push(`address = $${index++}`);
-      values.push(address === "" ? null : address);
+      values.push(address);
     }
     if (phone_number !== undefined) {
       updateFields.push(`phone_number = $${index++}`);
-      values.push(phone_number === "" ? null : phone_number);
+      values.push(phone_number);
     }
     if (id_type !== undefined) {
       updateFields.push(`id_type = $${index++}`);
-      values.push(id_type === "" ? null : id_type);
+      values.push(id_type);
     }
     if (id_number !== undefined) {
       updateFields.push(`id_number = $${index++}`);
-      values.push(id_number === "" ? null : id_number);
+      values.push(id_number);
     }
     if (date_of_issue !== undefined) {
       updateFields.push(`date_of_issue = $${index++}`);
-      values.push(date_of_issue === "" ? null : date_of_issue);
+      values.push(date_of_issue);
     }
     if (date_of_expiry !== undefined) {
       updateFields.push(`date_of_expiry = $${index++}`);
-      values.push(date_of_expiry === "" ? null : date_of_expiry);
+      values.push(date_of_expiry);
     }
     if (date_of_birth !== undefined) {
       updateFields.push(`date_of_birth = $${index++}`);
-      values.push(date_of_birth === "" ? null : date_of_birth);
+      values.push(date_of_birth);
     }
 
     if (updateFields.length === 0) {
