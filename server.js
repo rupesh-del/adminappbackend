@@ -356,26 +356,46 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
 app.get("/cheques/:cheque_number/details", async (req, res) => {
   const { cheque_number } = req.params;
 
-  console.log(`🔹 Fetching cheque details for: ${cheque_number}`);
+  console.log(`🔹 Fetching cheque details for cheque_number: ${cheque_number}`);
 
   try {
-    // ✅ Fetch cheque details from the database
-    const result = await pool.query(
-      "SELECT * FROM cheque_details WHERE cheque_number = $1",
-      [cheque_number]
-    );
+    // ✅ Check if cheque details exist
+    const result = await pool.query("SELECT * FROM cheque_details WHERE cheque_number = $1", [cheque_number]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Cheque details not found" });
+      console.warn("⚠️ No cheque details found. Attempting to create entry...");
+
+      // ✅ Check if the cheque exists in the main cheque table
+      const chequeResult = await pool.query("SELECT * FROM cheque WHERE cheque_number = $1", [cheque_number]);
+
+      if (chequeResult.rows.length === 0) {
+        console.error("❌ Cheque not found in main cheque table.");
+        return res.status(404).json({ error: "Cheque details not found" });
+      }
+
+      const cheque = chequeResult.rows[0];
+
+      // ✅ Insert a new row in `cheque_details`
+      const insertQuery = `
+        INSERT INTO cheque_details (cheque_number, address, phone_number, id_type, id_number, date_of_issue, date_of_expiry, date_of_birth) 
+        VALUES ($1, '', '', 'National ID', '', NULL, NULL, NULL) RETURNING *`;
+      const insertValues = [cheque.cheque_number];
+
+      const newDetails = await pool.query(insertQuery, insertValues);
+      console.log("✅ Auto-created cheque details:", newDetails.rows[0]);
+
+      return res.json(newDetails.rows[0]);
     }
 
-    console.log("✅ Cheque details retrieved:", result.rows[0]);
-    return res.json(result.rows[0]); // ✅ Return cheque details
+    console.log("✅ Cheque details found:", result.rows[0]);
+    return res.json(result.rows[0]);
+
   } catch (error) {
     console.error("❌ Error fetching cheque details:", error);
     return res.status(500).json({ error: "Server error retrieving cheque details" });
   }
 });
+
 
 
 // Start Server
