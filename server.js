@@ -337,17 +337,28 @@ app.post("/cheques/:cheque_number/details", async (req, res) => {
 // ✅ Fetch Cheque Details
 app.get("/cheques/:cheque_number/details", async (req, res) => {
   const { cheque_number } = req.params;
+
+  console.log(`🔹 Fetching cheque details for: ${cheque_number}`);
+
   try {
-    const result = await pool.query("SELECT * FROM cheque_details WHERE cheque_number = $1", [cheque_number]);
+    // ✅ Fetch cheque details from the database
+    const result = await pool.query(
+      "SELECT * FROM cheque_details WHERE cheque_number = $1",
+      [cheque_number]
+    );
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Cheque details not found" });
     }
-    res.json(result.rows[0]);
+
+    console.log("✅ Cheque details retrieved:", result.rows[0]);
+    return res.json(result.rows[0]); // ✅ Return cheque details
   } catch (error) {
-    console.error("Error fetching cheque details:", error);
-    res.status(500).json({ error: "Server error fetching cheque details" });
+    console.error("❌ Error fetching cheque details:", error);
+    return res.status(500).json({ error: "Server error retrieving cheque details" });
   }
 });
+
 
 // Start Server
 app.listen(PORT, () => {
